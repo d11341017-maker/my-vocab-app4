@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英文單字記憶測驗 App (雲端同步版 - V3)</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --text: #1f2937;
+      --success: #10b981;
+      --danger: #ef4444;
+      --gray: #6b7280;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      padding: 24px;
+    }
+
+    nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    nav button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #e5e7eb;
+      color: var(--text);
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    nav button.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* 單字數量統計標籤列 */
+    .word-count-badge {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .count-chip {
+      background: #e0e7ff;
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .count-chip.total {
+      background: #f3f4f6;
+      color: var(--gray);
+    }
+
+    /* 群組列樣式 */
+    .group-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      align-items: center;
+      background: #f9fafb;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      flex-wrap: wrap;
+    }
+
+    .group-bar select {
+      flex: 1;
+      min-width: 120px;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    input[type="text"], select {
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 15px;
+    }
+
+    .input-group input[type="text"] {
+      flex: 1;
+    }
+
+    .btn-primary {
+      padding: 10px 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .btn-secondary {
+      padding: 8px 10px;
+      background: #e5e7eb;
+      color: var(--text);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn-secondary:hover { background: #d1d5db; }
+
+    .word-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fff;
+    }
+
+    .word-info strong { font-size: 18px; color: #111827; }
+    .word-info span { color: var(--gray); font-size: 14px; margin-left: 6px; }
+    .cambridge-link { font-size: 12px; color: var(--primary); text-decoration: none; display: inline-block; margin-top: 4px; }
+
+    .action-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .btn-edit { color: var(--primary); background: #e0e7ff; }
+    .btn-edit:hover { background: #c7d2fe; }
+    .btn-delete { color: var(--danger); background: #fee2e2; }
+    .btn-delete:hover { background: #fca5a5; }
+
+    /* 測驗樣式 */
+    .quiz-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .timer { font-weight: bold; color: var(--danger); }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .option-btn {
+      padding: 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .option-btn:hover { background: #f9fafb; }
+    .option-btn.correct { background: #d1fae5; border-color: var(--success); }
+    .option-btn.wrong { background: #fee2e2; border-color: var(--danger); }
+
+    .stat-card {
+      text-align: center;
+      padding: 24px;
+      background: #f9fafb;
+      border-radius: 8px;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: center;
+    }
+
+    .loading-spinner {
+      font-size: 14px;
+      color: var(--primary);
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    /* Modal 彈出視窗樣式 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-content h3 { margin-top: 0; }
+    .modal-content label { font-size: 12px; color: var(--gray); display: block; margin-top: 8px; }
+    .modal-content input { width: 100%; box-sizing: border-box; margin-top: 4px; }
+    .modal-actions { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; }
+  </style>
+
+  <!-- 引入 Firebase SDK (v10 Modular) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      onSnapshot, 
+      doc, 
+      setDoc, 
+      deleteDoc, 
+      addDoc, 
+      getDocs 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyANsdalAJ3IR5BqqFK_iAJwIrOWgDjefD8",
+      authDomain: "mumu-3b037.firebaseapp.com",
+      projectId: "mumu-3b037",
+      storageBucket: "mumu-3b037.firebasestorage.app",
+      messagingSenderId: "630283891631",
+      appId: "1:630283891631:web:7b81676be6ac04afe0355a",
+      measurementId: "G-5M0S7KX9D2"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 將資料庫操作綁定到 window 供全域調用
+    window.db = db;
+    window.dbCollections = { collection, onSnapshot, doc, setDoc, deleteDoc, addDoc, getDocs };
+  </script>
+</head>
+<body>
+
+<div class="container">
+  <nav>
+    <button id="nav-add" class="active" onclick="switchView('add')">單字庫管理</button>
+    <button id="nav-quiz" onclick="switchView('quiz')">四選一測驗</button>
+  </nav>
+
+  <!-- 1. 單字新增與瀏覽介面 -->
+  <div id="view-add" class="view active">
+    <h2>單字庫 <span id="sync-status" style="font-size:12px; color:var(--gray); font-weight:normal;">(雲端連線中...)</span></h2>
+    
+    <!-- 群組管理列 -->
+    <div class="group-bar">
+      <label style="font-size:13px; font-weight:bold;">📁 群組：</label>
+      <select id="group-select" onchange="changeGroup()"></select>
+      <button class="btn-secondary" onclick="editCurrentGroupName()">✏️ 重新命名</button>
+      <button class="btn-secondary" onclick="deleteCurrentGroup()" style="color:var(--danger);">🗑 刪除群組</button>
+      <button class="btn-secondary" onclick="addNewGroup()" style="background:var(--primary); color:white;">+ 新群組</button>
+    </div>
+
+    <!-- 單字數量統計標籤 -->
+    <div class="word-count-badge">
+      <span class="count-chip" id="group-word-count">📁 本組單字：0 個</span>
+      <span class="count-chip total" id="total-word-count">🌟 全庫數量：0 個</span>
+    </div>
+
+    <div class="input-group">
+      <input type="text" id="word-input" placeholder="輸入英文單字 (例: elephant)..." onkeypress="handleKeyPress(event)">
+      <button class="btn-primary" id="search-btn" onclick="addWord()">⚡ 秒速新增</button>
+    </div>
+    <div id="loading" class="loading-spinner">🚀 雲端處理中...</div>
+    <div id="word-list"></div>
+  </div>
+
+  <!-- 2. 測驗介面 -->
+  <div id="view-quiz" class="view">
+    <div id="quiz-start-screen">
+      <h2>單字測驗準備</h2>
+      <div style="margin-bottom: 16px;">
+        <label style="font-size:14px; font-weight:bold; display:block; margin-bottom:6px;">選擇測驗範圍：</label>
+        <select id="quiz-group-select" style="width:100%;"></select>
+      </div>
+      <p style="color:var(--gray); font-size:14px;">系統將隨機抽 10-15 題進行四選一測驗。</p>
+      <button class="btn-primary" style="width:100%;" onclick="startQuiz()">開始測驗</button>
+    </div>
+
+    <div id="quiz-play-screen" style="display:none;">
+      <div class="quiz-header">
+        <span id="quiz-progress">題目 1 / 10</span>
+        <span class="timer">剩餘時間：<span id="time-left">10</span>s</span>
+      </div>
+      <h3 id="quiz-word" style="font-size: 28px; text-align: center; margin: 20px 0;">Word</h3>
+      <div class="options-grid" id="options-container"></div>
+    </div>
+
+    <div id="quiz-result-screen" style="display:none;">
+      <div class="stat-card">
+        <h2>測驗完成！</h2>
+        <p>總答題數：<span id="stat-total">0</span></p>
+        <p>答對題數：<span id="stat-correct" style="color:var(--success); font-weight:bold;">0</span></p>
+        <p>正確率：<span id="stat-accuracy">0%</span></p>
+        <div class="result-actions">
+          <button class="btn-secondary" onclick="resetQuizToSetup()">⚙️ 重新選擇範圍</button>
+          <button class="btn-primary" onclick="startQuiz()">🔄 同範圍再測驗一次</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 編輯單字 Modal 彈出視窗 -->
+<div id="edit-modal" class="modal">
+  <div class="modal-content">
+    <h3>修改單字資料</h3>
+    <input type="hidden" id="edit-id">
+    
+    <label>英文單字</label>
+    <input type="text" id="edit-word">
+    
+    <label>詞性 (例: n. / v. / adj.)</label>
+    <input type="text" id="edit-pos">
+    
+    <label>中文解釋</label>
+    <input type="text" id="edit-translation">
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeEditModal()">取消</button>
+      <button class="btn-primary" onclick="saveWordEdit()">儲存修改</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let wordBank = [];
+  let groups = ['預設群組'];
+  let currentGroup = '預設群組';
+  const searchCache = JSON.parse(localStorage.getItem('searchCache')) || {};
+
+  // --- 初始化 Firebase 即時同步 (Real-time Listener) ---
+  function initCloudSync() {
+    const checkFirebaseLoaded = setInterval(() => {
+      if (window.db) {
+        clearInterval(checkFirebaseLoaded);
+        const { collection, onSnapshot } = window.dbCollections;
+
+        // 1. 監聽群組同步 (更新為 groups_v3)
+        onSnapshot(collection(window.db, "groups_v3"), (snapshot) => {
+          let fetchedGroups = [];
+          snapshot.forEach(doc => fetchedGroups.push(doc.data().name));
+          if (fetchedGroups.length === 0) {
+            // 預設寫入第一個群組
+            window.dbCollections.setDoc(window.dbCollections.doc(window.db, "groups_v3", "default"), { name: "預設群組" });
+            groups = ["預設群組"];
+          } else {
+            // 按照群組名稱 Alphabetical 排序
+            groups = fetchedGroups.sort((a, b) => a.localeCompare(b, 'zh-TW'));
+          }
+          renderGroupSelect();
+        });
+
+        // 2. 監聽單字庫即時同步 (更新為 words_v3)
+        onSnapshot(collection(window.db, "words_v3"), (snapshot) => {
+          wordBank = [];
+          snapshot.forEach(doc => {
+            wordBank.push({ id: doc.id, ...doc.data() });
+          });
+          document.getElementById('sync-status').innerText = '☁️ 雲端同步中';
+          renderWordList();
+        });
+      }
+    }, 100);
+  }
+
+  function switchView(viewName) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    
+    document.getElementById(`view-${viewName}`).classList.add('active');
+    document.getElementById(`nav-${viewName}`).classList.add('active');
+
+    if (viewName === 'add') {
+      renderGroupSelect();
+      renderWordList();
+    } else if (viewName === 'quiz') {
+      resetQuizToSetup();
+    }
+  }
+
+  // --- 雲端群組管理 ---
+  function renderGroupSelect() {
+    if (!groups.includes(currentGroup)) {
+      currentGroup = groups[0] || '預設群組';
+    }
+    const select = document.getElementById('group-select');
+    select.innerHTML = groups.map(g => `<option value="${g}" ${g === currentGroup ? 'selected' : ''}>${g}</option>`).join('');
+  }
+
+  function renderQuizGroupSelect() {
+    const select = document.getElementById('quiz-group-select');
+    let options = `<option value="ALL">🌟 全部單字庫 (混合測驗)</option>`;
+    options += groups.map(g => `<option value="${g}">📁 ${g}</option>`).join('');
+    select.innerHTML = options;
+  }
+
+  function changeGroup() {
+    currentGroup = document.getElementById('group-select').value;
+    renderWordList();
+  }
+
+  async function addNewGroup() {
+    const name = prompt('請輸入新群組名稱（例：多益核心、Unit 1）：');
+    if (name && name.trim()) {
+      const trimmed = name.trim();
+      if (!groups.includes(trimmed)) {
+        const { doc, setDoc } = window.dbCollections;
+        await setDoc(doc(window.db, "groups_v3", trimmed), { name: trimmed });
+        currentGroup = trimmed;
+      } else {
+        alert('該群組名稱已存在');
+      }
+    }
+  }
+
+  async function editCurrentGroupName() {
+    const newName = prompt(`修改群組名稱 (${currentGroup}) 為：`, currentGroup);
+    if (newName && newName.trim() && newName.trim() !== currentGroup) {
+      const trimmed = newName.trim();
+      if (groups.includes(trimmed)) {
+        alert('已經有同名的群組了！');
+        return;
+      }
+      const oldGroup = currentGroup;
+      const { doc, setDoc, deleteDoc } = window.dbCollections;
+      
+      // 更新群組集合
+      await setDoc(doc(window.db, "groups_v3", trimmed), { name: trimmed });
+      await deleteDoc(doc(window.db, "groups_v3", oldGroup));
+
+      // 批量更新該群組單字
+      wordBank.forEach(async w => {
+        if ((w.group || '預設群組') === oldGroup) {
+          await setDoc(doc(window.db, "words_v3", w.id), { ...w, group: trimmed });
+        }
+      });
+
+      currentGroup = trimmed;
+    }
+  }
+
+  async function deleteCurrentGroup() {
+    if (groups.length <= 1) {
+      alert('至少需要保留一個群組！');
+      return;
+    }
+
+    const wordsInGroup = wordBank.filter(w => (w.group || '預設群組') === currentGroup);
+    if (wordsInGroup.length > 0) {
+      if (!confirm(`群組「${currentGroup}」內還有 ${wordsInGroup.length} 個單字！確定要刪除該群組與其中的所有單字嗎？`)) {
+        return;
+      }
+      const { doc, deleteDoc } = window.dbCollections;
+      wordsInGroup.forEach(async w => {
+        await deleteDoc(doc(window.db, "words_v3", w.id));
+      });
+    }
+
+    const { doc, deleteDoc } = window.dbCollections;
+    await deleteDoc(doc(window.db, "groups_v3", currentGroup));
+    currentGroup = groups[0];
+  }
+
+  function handleKeyPress(e) {
+    if (e.key === 'Enter') addWord();
+  }
+
+  // --- 高嚴謹度詞性判讀引擎 ---
+  async function fetchWithTimeout(resource, options = {}) {
+    const { timeout = 2500 } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(resource, { ...options, signal: controller.signal });
+      clearTimeout(id);
+      return response;
+    } catch (error) {
+      clearTimeout(id);
+      return null;
+    }
+  }
+
+  const commonWordOverride = {
+    'pretty': 'adj.', 'beautiful': 'adj.',
+    'run': 'v.', 'walk': 'v.', 'swim': 'v.', 'speak': 'v.', 'listen': 'v.', 'read': 'v.', 'write': 'v.',
+    'eat': 'v.', 'drink': 'v.', 'think': 'v.', 'make': 'v.', 'create': 'v.', 'build': 'v.', 'study': 'v.',
+    'apple': 'n.', 'banana': 'n.', 'cat': 'n.', 'dog': 'n.', 'student': 'n.', 'teacher': 'n.',
+    'good': 'adj.', 'bad': 'adj.', 'happy': 'adj.', 'sad': 'adj.', 'fast': 'adj.',
+    'quickly': 'adv.', 'slowly': 'adv.', 'always': 'adv.', 'never': 'adv.', 'often': 'adv.',
+    'in': 'prep.', 'on': 'prep.', 'at': 'prep.', 'under': 'prep.', 'with': 'prep.'
+  };
+
+  const posMap = {
+    noun: 'n.', n: 'n.',
+    verb: 'v.', v: 'v.',
+    adjective: 'adj.', adj: 'adj.',
+    adverb: 'adv.', adv: 'adv.',
+    preposition: 'prep.', prep: 'prep.',
+    pronoun: 'pron.', pron: 'pron.',
+    conjunction: 'conj.', conj: 'conj.',
+    interjection: 'interj.', interj: 'interj.'
+  };
+
+  function checkStrictGrammarRules(word) {
+    const w = word.toLowerCase();
+    if (w.endsWith('ful') || w.endsWith('less') || w.endsWith('able') || w.endsWith('ible') || 
+        w.endsWith('ous') || w.endsWith('ive') || w.endsWith('ic') || w.endsWith('ish')) {
+      return 'adj.';
+    }
+    if (w.endsWith('tion') || w.endsWith('sion') || w.endsWith('ment') || w.endsWith('ness') || 
+        w.endsWith('ance') || w.endsWith('ence') || w.endsWith('ity') || w.endsWith('ship') || 
+        w.endsWith('hood') || w.endsWith('ism') || w.endsWith('ist')) {
+      return 'n.';
+    }
+    if (w.endsWith('ize') || w.endsWith('ise') || w.endsWith('ify')) {
+      return 'v.';
+    }
+    if (w.endsWith('ly') && !['family', 'ugly', 'silly', 'friendly', 'lonely', 'lovely'].includes(w)) {
+      return 'adv.';
+    }
+    return null;
+  }
+
+  async function fetchStrictPrimaryPos(word) {
+    const cleanWord = word.toLowerCase().trim();
+    if (commonWordOverride[cleanWord]) return commonWordOverride[cleanWord];
+
+    const rulePos = checkStrictGrammarRules(cleanWord);
+    if (rulePos) return rulePos;
+
+    let posScores = { 'n.': 0, 'v.': 0, 'adj.': 0, 'adv.': 0, 'prep.': 0, 'pron.': 0, 'conj.': 0, 'interj.': 0 };
+
+    try {
+      const resDict = await fetchWithTimeout(`https://api.dictionaryapi.dev/api/v2/entries/en/${cleanWord}`, { timeout: 2000 });
+      if (resDict && resDict.ok) {
+        const json = await resDict.json();
+        if (Array.isArray(json) && json[0]?.meanings?.length > 0) {
+          json[0].meanings.slice(0, 3).forEach((m, idx) => {
+            const raw = m.partOfSpeech ? m.partOfSpeech.toLowerCase() : '';
+            const mapped = posMap[raw];
+            if (mapped) posScores[mapped] += (idx === 0 ? 5 : 2);
+          });
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const resData = await fetchWithTimeout(`https://api.datamuse.com/words?sp=${encodeURIComponent(cleanWord)}&md=p&max=1`, { timeout: 2000 });
+      if (resData && resData.ok) {
+        const json = await resData.json();
+        if (Array.isArray(json) && json[0] && json[0].tags) {
+          json[0].tags.forEach((tag, idx) => {
+            const mapped = posMap[tag];
+            if (mapped) posScores[mapped] += (idx === 0 ? 3 : 1);
+          });
+        }
+      }
+    } catch (e) {}
+
+    let maxPos = null;
+    let maxScore = 0;
+    for (const [pos, score] of Object.entries(posScores)) {
+      if (score > maxScore) {
+        maxScore = score;
+        maxPos = pos;
+      }
+    }
+
+    return maxPos || 'n.';
+  }
+
+  async function fetchWordDetailsFast(word) {
+    if (searchCache[word]) return { ...searchCache[word] };
+
+    const translatePromise = (async () => {
+      const resA = await fetchWithTimeout(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q=${encodeURIComponent(word)}`, { timeout: 2000 });
+      if (resA && resA.ok) {
+        const data = await resA.json();
+        if (data && data[0] && data[0][0]) return data[0][0][0];
+      }
+      
+      const resB = await fetchWithTimeout(`https://api.mymemory.translated.net/get?q=${word}&langpair=en|zh-TW`, { timeout: 2500 });
+      if (resB && resB.ok) {
+        const data = await resB.json();
+        const trans = data.responseData?.translatedText;
+        if (trans && !trans.includes("INVALID")) return trans;
+      }
+
+      return word;
+    })();
+
+    const [translation, pos] = await Promise.all([translatePromise, fetchStrictPrimaryPos(word)]);
+    const cambridgeUrl = `https://dictionary.cambridge.org/zht/詞典/英語-漢語-繁體/${encodeURIComponent(word)}`;
+
+    const result = { word, pos, translation, link: cambridgeUrl };
+    searchCache[word] = result;
+    localStorage.setItem('searchCache', JSON.stringify(searchCache));
+
+    return result;
+  }
+
+  async function addWord() {
+    const input = document.getElementById('word-input');
+    const searchBtn = document.getElementById('search-btn');
+    const wordText = input.value.trim().toLowerCase();
+    
+    if (!wordText) return;
+
+    if (wordBank.some(w => w.word === wordText && w.group === currentGroup)) {
+      alert('該群組中已存在此單字！');
+      input.value = '';
+      return;
+    }
+
+    document.getElementById('loading').style.display = 'block';
+    searchBtn.disabled = true;
+
+    try {
+      const fetched = await fetchWordDetailsFast(wordText);
+      const newWord = {
+        ...fetched,
+        group: currentGroup,
+        createdAt: Date.now()
+      };
+
+      // 寫入 Firebase (更新為 words_v3)
+      const { collection, addDoc } = window.dbCollections;
+      await addDoc(collection(window.db, "words_v3"), newWord);
+
+      input.value = '';
+    } catch (err) {
+      alert('新增失敗，請再試一次');
+    } finally {
+      document.getElementById('loading').style.display = 'none';
+      searchBtn.disabled = false;
+    }
+  }
+
+  // --- 渲染畫面 (包含 A-Z 字母排序與單字統計) ---
+  function renderWordList() {
+    const listEl = document.getElementById('word-list');
+    
+    // 1. 篩選出當前群組單字
+    let currentWords = wordBank.filter(w => (w.group || '預設群組') === currentGroup);
+
+    // 2. 更新單字數量統計數據
+    document.getElementById('group-word-count').innerText = `📁 本組單字：${currentWords.length} 個`;
+    document.getElementById('total-word-count').innerText = `🌟 全庫數量：${wordBank.length} 個`;
+
+    // 3. 依照英文單字 A-Z 進行排序（不區分大小寫）
+    currentWords.sort((a, b) => a.word.toLowerCase().localeCompare(b.word.toLowerCase()));
+
+    if (currentWords.length === 0) {
+      listEl.innerHTML = `<div style="text-align:center; color:var(--gray); padding:20px;">這個群組還沒有單字，快在上方新增吧！</div>`;
+      return;
+    }
+
+    listEl.innerHTML = currentWords.map(item => `
+      <div class="word-card">
+        <div class="word-info">
+          <strong>${item.word}</strong> <span>[${item.pos}] ${item.translation}</span>
+          <br>
+          <a class="cambridge-link" href="${item.link}" target="_blank">在劍橋字典查看 ↗</a>
+        </div>
+        <div class="action-btns">
+          <button class="btn-icon btn-edit" data-id="${item.id}" onclick="handleEditClick(this)">✏️ 編輯</button>
+          <button class="btn-icon btn-delete" data-id="${item.id}" onclick="handleDeleteClick(this)">🗑️ 刪除</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function handleEditClick(btn) {
+    const targetId = btn.getAttribute('data-id');
+    openEditModal(targetId);
+  }
+
+  function handleDeleteClick(btn) {
+    const targetId = btn.getAttribute('data-id');
+    deleteWord(targetId);
+  }
+
+  function openEditModal(targetId) {
+    const item = wordBank.find(w => String(w.id) === String(targetId));
+    if (!item) {
+      alert('找不到該單字資料！');
+      return;
+    }
+
+    document.getElementById('edit-id').value = item.id;
+    document.getElementById('edit-word').value = item.word;
+    document.getElementById('edit-pos').value = item.pos;
+    document.getElementById('edit-translation').value = item.translation;
+
+    document.getElementById('edit-modal').style.display = 'flex';
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-modal').style.display = 'none';
+  }
+
+  async function saveWordEdit() {
+    const targetId = document.getElementById('edit-id').value;
+    const word = document.getElementById('edit-word').value.trim();
+    const pos = document.getElementById('edit-pos').value.trim();
+    const translation = document.getElementById('edit-translation').value.trim();
+
+    if (!word || !translation) {
+      alert('英文單字與中文解釋不可空白');
+      return;
+    }
+
+    const item = wordBank.find(w => String(w.id) === String(targetId));
+    if (item) {
+      const updatedWord = {
+        ...item,
+        word,
+        pos,
+        translation,
+        link: `https://dictionary.cambridge.org/zht/詞典/英語-漢語-繁體/${encodeURIComponent(word)}`
+      };
+
+      const { doc, setDoc } = window.dbCollections;
+      await setDoc(doc(window.db, "words_v3", targetId), updatedWord);
+      closeEditModal();
+    }
+  }
+
+  async function deleteWord(targetId) {
+    const { doc, deleteDoc } = window.dbCollections;
+    await deleteDoc(doc(window.db, "words_v3", targetId));
+  }
+
+  // --- 測驗系統邏輯 ---
+  let quizQuestions = [];
+  let currentQuestionIndex = 0;
+  let correctCount = 0;
+  let timer = null;
+  let timeLeft = 10;
+
+  function resetQuizToSetup() {
+    clearInterval(timer);
+    document.getElementById('quiz-play-screen').style.display = 'none';
+    document.getElementById('quiz-result-screen').style.display = 'none';
+    document.getElementById('quiz-start-screen').style.display = 'block';
+    renderQuizGroupSelect();
+  }
+
+  function startQuiz() {
+    const selectedGroup = document.getElementById('quiz-group-select').value;
+    let pool = selectedGroup === 'ALL' ? wordBank : wordBank.filter(w => (w.group || '預設群組') === selectedGroup);
+
+    if (pool.length < 4) {
+      alert('該測驗範圍至少需要 4 個單字才能開始四選一測驗喔！');
+      return;
+    }
+
+    const questionCount = Math.min(pool.length, Math.floor(Math.random() * 6) + 10);
+    quizQuestions = [...pool].sort(() => 0.5 - Math.random()).slice(0, questionCount);
+
+    currentQuestionIndex = 0;
+    correctCount = 0;
+
+    document.getElementById('quiz-start-screen').style.display = 'none';
+    document.getElementById('quiz-result-screen').style.display = 'none';
+    document.getElementById('quiz-play-screen').style.display = 'block';
+
+    showNextQuestion();
+  }
+
+  function showNextQuestion() {
+    if (currentQuestionIndex >= quizQuestions.length) {
+      endQuiz();
+      return;
+    }
+
+    const currentQ = quizQuestions[currentQuestionIndex];
+    document.getElementById('quiz-progress').innerText = `題目 ${currentQuestionIndex + 1} / ${quizQuestions.length}`;
+    document.getElementById('quiz-word').innerText = currentQ.word;
+
+    let options = [currentQ];
+    let otherWords = wordBank.filter(w => w.word !== currentQ.word);
+    otherWords.sort(() => 0.5 - Math.random());
+    options.push(...otherWords.slice(0, 3));
+    options.sort(() => 0.5 - Math.random());
+
+    const optionsContainer = document.getElementById('options-container');
+    optionsContainer.innerHTML = options.map(opt => `
+      <button class="option-btn" onclick="checkAnswer(this, '${opt.translation}', '${currentQ.translation}')">
+        ${opt.translation}
+      </button>
+    `).join('');
+
+    resetTimer();
+  }
+
+  function resetTimer() {
+    clearInterval(timer);
+    timeLeft = 10;
+    document.getElementById('time-left').innerText = timeLeft;
+
+    timer = setInterval(() => {
+      timeLeft--;
+      document.getElementById('time-left').innerText = timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        currentQuestionIndex++;
+        showNextQuestion();
+      }
+    }, 1000);
+  }
+
+  function checkAnswer(btn, selectedText, correctText) {
+    clearInterval(timer);
+    const btns = document.querySelectorAll('.option-btn');
+    btns.forEach(b => b.disabled = true);
+
+    if (selectedText === correctText) {
+      btn.classList.add('correct');
+      correctCount++;
+    } else {
+      btn.classList.add('wrong');
+      btns.forEach(b => {
+        if (b.innerText.trim() === correctText) b.classList.add('correct');
+      });
+    }
+
+    setTimeout(() => {
+      currentQuestionIndex++;
+      showNextQuestion();
+    }, 1200);
+  }
+
+  function endQuiz() {
+    clearInterval(timer);
+    document.getElementById('quiz-play-screen').style.display = 'none';
+    document.getElementById('quiz-result-screen').style.display = 'block';
+
+    const accuracy = Math.round((correctCount / quizQuestions.length) * 100);
+    document.getElementById('stat-total').innerText = quizQuestions.length;
+    document.getElementById('stat-correct').innerText = correctCount;
+    document.getElementById('stat-accuracy').innerText = `${accuracy}%`;
+  }
+
+  // 啟動雲端同步
+  initCloudSync();
+</script>
+
+</body>
+</html>
+```<FollowUp label="需要幫你加入發音按鈕或發音朗讀功能嗎？" query="請幫我在單字卡片上加上點擊播放語音發音（TTS）的功能。"/>
